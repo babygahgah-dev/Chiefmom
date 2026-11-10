@@ -1,4 +1,10 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
 <title>病房普通話 Ward Putonghua</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Sans+SC:wght@500;700;900&display=swap">
@@ -250,6 +256,9 @@ select { min-height: 46px; border-radius: 12px; border: 1.5px solid var(--line);
 .scen-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 14px; background: var(--surface); border-radius: 14px; text-align: left; width: 100%; }
 .scen-row b { font: 700 1rem/1.3 var(--han); display: block; } .scen-row small { color: var(--muted); font-size: .8rem; }
 .scen-row .st { font: 700 .85rem/1 var(--lat); color: var(--flame); white-space: nowrap; }
+
+/* Selected but not yet checked */
+.opt.sel, .trapc.sel { border-color: var(--pth); background: var(--pth-soft); box-shadow: 0 3px 0 var(--pth); }
 </style>
 
 <header class="top">
@@ -1103,6 +1112,18 @@ function scenNext() {
   tone(true);
 }
 
+/* Select-then-check: tapping an answer only selects it, so a mis-tap can be changed before pressing Check. */
+function choose(el) {
+  el.parentElement.querySelectorAll('.sel').forEach(b => { b.classList.remove('sel'); b.setAttribute('aria-pressed', 'false'); });
+  el.classList.add('sel'); el.setAttribute('aria-pressed', 'true');
+  if (!$('#foot .cta[data-a=check]')) $('#foot').innerHTML = `<button class="cta" data-a="check">${L('檢查答案', 'Check')}</button>`;
+}
+function check() {
+  const el = overlay.querySelector('.sel'); if (!el) return;
+  el.classList.remove('sel'); el.removeAttribute('aria-pressed');
+  ({ ans: () => answer(+el.dataset.i), trapans: () => trapAnswer(+el.dataset.n), scenans: () => scenAnswer(+el.dataset.i) })[el.dataset.a]();
+}
+
 /* ---------- shell ---------- */
 function render() {
   document.documentElement.lang = S.lang === 'zh' ? 'zh-HK' : 'en';
@@ -1123,9 +1144,10 @@ const ACT = {
   quit: () => closeOverlay(), close: () => closeOverlay(),
   next: () => nextStep(),
   slowtoggle: el => { S.slow = !S.slow; save(); el.setAttribute('aria-pressed', S.slow); },
-  ans: el => answer(+el.dataset.i),
-  trap: () => { sheet.hidden = true; startTrap(); }, trapans: el => trapAnswer(+el.dataset.n), trapnext: () => trapNext(),
-  scenlist: () => openScenList(), scen: el => startScen(+el.dataset.n), scenans: el => scenAnswer(+el.dataset.i), scennext: () => scenNext(),
+  ans: el => { if (Q && Q.answered === null) choose(el); },
+  check: () => check(),
+  trap: () => { sheet.hidden = true; startTrap(); }, trapans: el => (Z && Z.answered) ? trapAnswer(+el.dataset.n) : choose(el), trapnext: () => trapNext(),
+  scenlist: () => openScenList(), scen: el => startScen(+el.dataset.n), scenans: el => { if (X && !X.answered) choose(el); }, scennext: () => scenNext(),
   scenshow: () => { X.shown = true; renderScen(); },
   reveal: () => reveal(), mic: el => micCheck(el),
   self: el => { grade(el.dataset.ok === '1'); nextStep(); },
@@ -1144,13 +1166,13 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (!sheet.hidden) ACT.closesheet(); else if (!overlay.hidden) closeOverlay(); }
-  if (Q && /^[1-4]$/.test(e.key)) { const b = overlay.querySelectorAll('.opt')[+e.key - 1]; if (b && !b.disabled) b.click(); }
-  if (Q && e.key === 'Enter') { const b = overlay.querySelector('#foot .cta:last-child'); if (b && document.activeElement.tagName !== 'BUTTON') b.click(); }
+  if ((Q || Z || X) && /^[1-4]$/.test(e.key)) { const b = overlay.querySelectorAll('.opt, .trapc')[+e.key - 1]; if (b && !b.disabled) b.click(); }
+  if ((Q || Z || X) && e.key === 'Enter') { const b = overlay.querySelector('#foot .cta:last-child'); if (b && document.activeElement.tagName !== 'BUTTON') b.click(); }
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && overlay.hidden && sheet.hidden) render(); });
 render();
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && document.querySelector('link[rel="manifest"]')) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
 </script>
-
-</body></html>
+</body>
+</html>
