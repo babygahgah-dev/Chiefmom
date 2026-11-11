@@ -1,0 +1,12 @@
+// Offline cache. The app shell is cached on install; each topic's audio is cached the first time it is used.
+const V = 'wardpth-v2-1';
+const FILES = ['./', 'index.html', 'app.css', 'app.js', 'terms.js', 'icon.svg', 'manifest.webmanifest'];
+self.addEventListener('install', e => e.waitUntil(caches.open(V).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
+self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())));
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
+  const audio = e.request.url.includes('/audio/');
+  e.respondWith(audio
+    ? caches.match(e.request).then(hit => hit || fetch(e.request).then(r => { if (r.ok) { const copy = r.clone(); caches.open(V).then(c => c.put(e.request, copy)); } return r; }))
+    : fetch(e.request).then(r => { if (r.ok) { const copy = r.clone(); caches.open(V).then(c => c.put(e.request, copy)); } return r; }).catch(() => caches.match(e.request)));
+});
